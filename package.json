@@ -6,6 +6,10 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "fake:tremol": "node src/dev/fake-zfplabserver.ts",
+    "web:dev": "vite --config frontend/vite.config.ts",
+    "web:build": "vite build --config frontend/vite.config.ts",
+    "web:preview": "vite preview --config frontend/vite.config.ts",
+    "typecheck:web": "tsc --project frontend/tsconfig.json",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit -p tsconfig.json",
