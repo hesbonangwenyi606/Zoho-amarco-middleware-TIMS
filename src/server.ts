@@ -8,6 +8,8 @@ import { ZohoInvoiceService } from "./application/zoho/zoho-invoice-service.js";
 import { startZohoOAuthAttemptCleanup } from "./application/zoho/zoho-oauth-attempt-cleanup.js";
 import { RegisterFiscalizationRequestService } from "./application/fiscalization/register-fiscalization-request.js";
 import { PrepareFiscalizationRequestService } from "./application/fiscalization/prepare-fiscalization-request.js";
+import { FiscalizationService } from "./application/fiscalization/fiscalization-service.js";
+import { MockFiscalDevice } from "./infrastructure/device/mock-fiscal-device.js";
 
 const databaseProvider = createFiscalizationRepositoryProvider();
 
@@ -26,38 +28,74 @@ const oauthService =
       })
     : undefined;
 
-// Enable invoice retrieval only when OAuth and the organization ID
-// are configured. The client itself does not fiscalize invoices.
-const booksClient =
-  oauthService && env.ZOHO_ORGANIZATION_ID
-    ? new ZohoBooksClient({
-        tokenProvider: oauthService,
-        organizationId: env.ZOHO_ORGANIZATION_ID,
-      })
-    : undefined;
+// The client supports organization discovery even before the target
+// organization ID is known. Invoice retrieval still requires the ID.
+const booksClient = oauthService
+  ? new ZohoBooksClient({
+      tokenProvider: oauthService,
+      ...(env.ZOHO_ORGANIZATION_ID ? { organizationId: env.ZOHO_ORGANIZATION_ID } : {}),
+    })
+  : undefined;
 
 const invoiceService = booksClient ? new ZohoInvoiceService(booksClient) : undefined;
 
-const registrationService = new RegisterFiscalizationRequestService(
-    databaseProvider.repository,
-);
+const registrationService = new RegisterFiscalizationRequestService(databaseProvider.repository);
 
 const prepareFiscalizationRequestService = invoiceService
-    ? new PrepareFiscalizationRequestService(
-        invoiceService,
-        registrationService,
+  ? new PrepareFiscalizationRequestService(
+      invoiceService,
+      registrationService,
+      undefined,
+      env.FISCAL_MODE === "MOCK"
+        ? (candidate) =>
+            candidate.invoiceNumber?.startsWith(env.MOCK_INVOICE_NUMBER_PREFIX) === true
+        : undefined,
     )
+  : undefined;
+
+const mockFiscalizationService =
+  env.FISCAL_MODE === "MOCK"
+    ? new FiscalizationService(
+        databaseProvider.repository,
+        new MockFiscalDevice(env.MOCK_FAIL_ONCE_FOR_INVOICE_ID, (message) => logger.warn(message)),
+      )
     : undefined;
 
+const mockWriteBackFieldIds = [
+  env.ZOHO_FISCAL_STATUS_FIELD_ID,
+  env.ZOHO_CU_NUMBER_FIELD_ID,
+  env.ZOHO_QR_FIELD_ID,
+  env.ZOHO_FISCALIZED_AT_FIELD_ID,
+];
+const mockWriteBack =
+  env.FISCAL_MODE === "MOCK" &&
+  booksClient &&
+  env.ZOHO_ORGANIZATION_ID &&
+  mockWriteBackFieldIds.every(Boolean)
+    ? async (invoiceId: string, receiptNumber: string, qrValue: string, issuedAt: Date) => {
+        await booksClient.updateInvoiceCustomFields(invoiceId, [
+          { customfield_id: env.ZOHO_FISCAL_STATUS_FIELD_ID!, value: "TEST - NOT A TAX INVOICE" },
+          { customfield_id: env.ZOHO_CU_NUMBER_FIELD_ID!, value: receiptNumber },
+          { customfield_id: env.ZOHO_QR_FIELD_ID!, value: qrValue },
+          { customfield_id: env.ZOHO_FISCALIZED_AT_FIELD_ID!, value: issuedAt.toISOString() },
+        ]);
+      }
+    : undefined;
+if (env.FISCAL_MODE === "MOCK" && !mockWriteBack) {
+  logger.warn(
+    "MOCK Zoho write-back is disabled; configure four Zoho invoice custom-field IDs and grant invoices.UPDATE",
+  );
+}
+
 const app = createApp({
-    checkDatabaseConnection: databaseProvider.checkConnection,
-    fiscalizationRepository: databaseProvider.repository,
-    ...(oauthService ? { oauthService } : {}),
-    ...(booksClient ? { booksClient } : {}),
-    ...(invoiceService ? { invoiceService } : {}),
-    ...(prepareFiscalizationRequestService
-        ? { prepareFiscalizationRequestService }
-        : {}),
+  checkDatabaseConnection: databaseProvider.checkConnection,
+  fiscalizationRepository: databaseProvider.repository,
+  ...(oauthService ? { oauthService } : {}),
+  ...(booksClient ? { booksClient } : {}),
+  ...(invoiceService ? { invoiceService } : {}),
+  ...(prepareFiscalizationRequestService ? { prepareFiscalizationRequestService } : {}),
+  ...(mockFiscalizationService ? { mockFiscalizationService } : {}),
+  ...(mockWriteBack ? { mockWriteBack } : {}),
 });
 
 const server = app.listen(env.PORT, () => {

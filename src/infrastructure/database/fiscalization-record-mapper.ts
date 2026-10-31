@@ -10,6 +10,7 @@ export interface FiscalizationRecordRow {
   zohoInvoiceId: string;
   status: string;
   receiptNumber: string | null;
+  receiptQrValue?: string | null;
   issuedAt: Date | null;
   failureCode: string | null;
   failureMessage: string | null;
@@ -89,6 +90,7 @@ export function toDomainRecord(row: FiscalizationRecordRow): FiscalizationRecord
       ? {
           receiptNumber: row.receiptNumber!,
           issuedAt: new Date(row.issuedAt!),
+          ...(row.receiptQrValue ? { qrValue: row.receiptQrValue } : {}),
         }
       : null;
 
@@ -118,6 +120,7 @@ export function toDatabaseRecord(record: FiscalizationRecord) {
     zohoInvoiceId: record.zohoInvoiceId,
     status: record.status,
     receiptNumber: record.receipt?.receiptNumber ?? null,
+    receiptQrValue: record.receipt?.qrValue ?? null,
     issuedAt: record.receipt?.issuedAt ?? null,
     failureCode: record.failure?.code ?? null,
     failureMessage: record.failure?.message ?? null,

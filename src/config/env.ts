@@ -5,6 +5,13 @@ export const envSchema = z
   .object({
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
     DATABASE_PROVIDER: z.enum(["postgresql", "sqlserver"]).default("postgresql"),
+    FISCAL_MODE: z.enum(["DISABLED", "MOCK", "LIVE"]).default("DISABLED"),
+    MOCK_FAIL_ONCE_FOR_INVOICE_ID: z.string().trim().optional(),
+    MOCK_INVOICE_NUMBER_PREFIX: z.string().trim().min(1).default("TRAIN-"),
+    ZOHO_FISCAL_STATUS_FIELD_ID: z.string().trim().optional(),
+    ZOHO_CU_NUMBER_FIELD_ID: z.string().trim().optional(),
+    ZOHO_QR_FIELD_ID: z.string().trim().optional(),
+    ZOHO_FISCALIZED_AT_FIELD_ID: z.string().trim().optional(),
     DATABASE_URL: z.string().optional(),
 
     SQLSERVER_SERVER: z.string().optional(),
@@ -14,9 +21,9 @@ export const envSchema = z
     SQLSERVER_PORT: z.coerce.number().int().min(1).max(65535).default(1433),
     SQLSERVER_ENCRYPT: z.enum(["true", "false"]).default("true"),
     SQLSERVER_TRUST_SERVER_CERTIFICATE: z.enum(["true", "false"]).default("false"),
-      // Protect invoice endpoints from unauthorized access.
-      // Generate a strong random token and keep it out of source control.
-      INVOICE_API_BEARER_TOKEN: z.string().trim().min(32).optional(),
+    // Protect invoice endpoints from unauthorized access.
+    // Generate a strong random token and keep it out of source control.
+    INVOICE_API_BEARER_TOKEN: z.string().trim().min(32).optional(),
     PORT: z.coerce.number().int().min(1).max(65535).default(3000),
     LOG_LEVEL: z
       .enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"])
@@ -40,6 +47,22 @@ export const envSchema = z
       .optional(),
   })
   .superRefine((value, context) => {
+    if (value.FISCAL_MODE === "MOCK" && value.NODE_ENV === "production") {
+      context.addIssue({
+        code: "custom",
+        path: ["FISCAL_MODE"],
+        message: "MOCK fiscalization is forbidden in production",
+      });
+    }
+
+    if (value.FISCAL_MODE === "LIVE") {
+      context.addIssue({
+        code: "custom",
+        path: ["FISCAL_MODE"],
+        message: "LIVE fiscalization is not implemented or enabled",
+      });
+    }
+
     if (value.DATABASE_PROVIDER === "postgresql" && !value.DATABASE_URL?.trim()) {
       context.addIssue({
         code: "custom",
@@ -48,13 +71,13 @@ export const envSchema = z
       });
     }
 
-      if (value.NODE_ENV === "production" && !value.INVOICE_API_BEARER_TOKEN) {
-          context.addIssue({
-              code: "custom",
-              path: ["INVOICE_API_BEARER_TOKEN"],
-              message: "INVOICE_API_BEARER_TOKEN is required in production",
-          });
-      }
+    if (value.NODE_ENV === "production" && !value.INVOICE_API_BEARER_TOKEN) {
+      context.addIssue({
+        code: "custom",
+        path: ["INVOICE_API_BEARER_TOKEN"],
+        message: "INVOICE_API_BEARER_TOKEN is required in production",
+      });
+    }
 
     if (value.DATABASE_PROVIDER === "sqlserver") {
       for (const key of [

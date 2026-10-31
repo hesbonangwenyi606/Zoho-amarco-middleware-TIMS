@@ -88,8 +88,14 @@ export function buildZohoAuthorizationUrl(options: ZohoAuthorizationUrlOptions):
   authorizationUrl.searchParams.set("client_id", clientId);
   authorizationUrl.searchParams.set("response_type", "code");
   authorizationUrl.searchParams.set("redirect_uri", callbackUrl.toString());
-  authorizationUrl.searchParams.set("scope", "ZohoBooks.invoices.READ");
+  authorizationUrl.searchParams.set(
+    "scope",
+    "ZohoBooks.invoices.READ,ZohoBooks.settings.READ,ZohoBooks.invoices.UPDATE",
+  );
   authorizationUrl.searchParams.set("access_type", "offline");
+  // Force Zoho to show the consent screen again when an existing connection
+  // needs newly requested scopes (for example, invoice custom-field updates).
+  authorizationUrl.searchParams.set("prompt", "consent");
   authorizationUrl.searchParams.set("state", state);
   authorizationUrl.searchParams.set("code_challenge", codeChallenge);
   authorizationUrl.searchParams.set("code_challenge_method", "S256");

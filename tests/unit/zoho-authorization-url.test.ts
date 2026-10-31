@@ -25,7 +25,9 @@ describe("Zoho authorization URL builder", () => {
     expect(url.searchParams.get("redirect_uri")).toBe(
       "http://localhost:3000/integrations/zoho/callback",
     );
-    expect(url.searchParams.get("scope")).toBe("ZohoBooks.invoices.READ");
+    expect(url.searchParams.get("scope")).toBe(
+      "ZohoBooks.invoices.READ,ZohoBooks.settings.READ,ZohoBooks.invoices.UPDATE",
+    );
     expect(url.searchParams.get("access_type")).toBe("offline");
     expect(url.searchParams.get("state")).toBe("test-random-state");
     expect(url.searchParams.get("code_challenge")).toBe("test-pkce-challenge");

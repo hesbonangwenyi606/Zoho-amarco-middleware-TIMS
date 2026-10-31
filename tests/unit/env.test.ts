@@ -8,7 +8,6 @@ describe("Environment configuration", () => {
     DATABASE_URL: "postgresql://test:test@localhost:5432/zoho_amarco_test",
   };
 
-
   it("accepts a valid invoice API bearer token", () => {
     const token = "a".repeat(64);
 
@@ -43,28 +42,28 @@ describe("Environment configuration", () => {
 
     if (!result.success) {
       expect(result.error.issues).toContainEqual(
-          expect.objectContaining({
-            path: ["INVOICE_API_BEARER_TOKEN"],
-            message: "INVOICE_API_BEARER_TOKEN is required in production",
-          }),
+        expect.objectContaining({
+          path: ["INVOICE_API_BEARER_TOKEN"],
+          message: "INVOICE_API_BEARER_TOKEN is required in production",
+        }),
       );
     }
   });
 
   it.each(["development", "test"])(
-      "allows the invoice API bearer token to be omitted in %s",
-      (nodeEnv) => {
-        const result = envSchema.safeParse({
-          ...validEnvironment,
-          NODE_ENV: nodeEnv,
-        });
+    "allows the invoice API bearer token to be omitted in %s",
+    (nodeEnv) => {
+      const result = envSchema.safeParse({
+        ...validEnvironment,
+        NODE_ENV: nodeEnv,
+      });
 
-        expect(result.success).toBe(true);
+      expect(result.success).toBe(true);
 
-        if (result.success) {
-          expect(result.data.INVOICE_API_BEARER_TOKEN).toBeUndefined();
-        }
-      },
+      if (result.success) {
+        expect(result.data.INVOICE_API_BEARER_TOKEN).toBeUndefined();
+      }
+    },
   );
 
   it("applies defaults when optional Zoho credentials are omitted", () => {
@@ -75,6 +74,22 @@ describe("Environment configuration", () => {
     expect(result.ZOHO_ORGANIZATION_ID).toBeUndefined();
     expect(result.ZOHO_REDIRECT_URI).toBe("http://localhost:3000/integrations/zoho/callback");
     expect(result.ZOHO_ACCOUNTS_URL).toBe("https://accounts.zoho.com");
+  });
+
+  it("defaults fiscalization to disabled", () => {
+    expect(envSchema.parse(validEnvironment).FISCAL_MODE).toBe("DISABLED");
+  });
+
+  it("allows MOCK only outside production and rejects unimplemented LIVE mode", () => {
+    expect(envSchema.safeParse({ ...validEnvironment, FISCAL_MODE: "MOCK" }).success).toBe(true);
+    const productionMock = envSchema.safeParse({
+      ...validEnvironment,
+      NODE_ENV: "production",
+      INVOICE_API_BEARER_TOKEN: "a".repeat(64),
+      FISCAL_MODE: "MOCK",
+    });
+    expect(productionMock.success).toBe(false);
+    expect(envSchema.safeParse({ ...validEnvironment, FISCAL_MODE: "LIVE" }).success).toBe(false);
   });
 
   it("accepts both Zoho OAuth credentials", () => {

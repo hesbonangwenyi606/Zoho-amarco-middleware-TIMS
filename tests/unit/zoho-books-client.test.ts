@@ -32,6 +32,32 @@ function createClient(
 }
 
 describe("ZohoBooksClient", () => {
+  it("writes only configured invoice custom fields with the update scope", async () => {
+    const { client, transport } = createClient(
+      new Response(JSON.stringify({ code: 0, message: "success" }), { status: 200 }),
+      { scopes: "ZohoBooks.invoices.READ,ZohoBooks.invoices.UPDATE" },
+    );
+    const fields = [{ customfield_id: "cf-1", value: "TEST-123" }];
+    await client.updateInvoiceCustomFields(invoiceId, fields);
+    const [url, request] = transport.mock.calls[0]!;
+    expect(new URL(String(url)).pathname).toBe(`/books/v3/invoices/${invoiceId}`);
+    expect(request?.method).toBe("PUT");
+    expect(JSON.parse(String(request?.body))).toEqual({ custom_fields: fields });
+  });
+
+  it("requires the Zoho invoice update scope before writing custom fields", async () => {
+    const { client, transport } = createClient(
+      new Response(JSON.stringify({ code: 0 }), { status: 200 }),
+    );
+    await expect(
+      client.updateInvoiceCustomFields(invoiceId, [{ customfield_id: "cf-1", value: "x" }]),
+    ).rejects.toMatchObject({
+      name: "ZohoBooksScopeError",
+      requiredScope: "ZohoBooks.invoices.UPDATE",
+    });
+    expect(transport).not.toHaveBeenCalled();
+  });
+
   it("retrieves an invoice and sends the expected authenticated request", async () => {
     const invoice = {
       invoice_id: invoiceId,

@@ -13,6 +13,7 @@ model FiscalizationRecord {
   status        String @default("Pending") @db.VarChar(32)
 
   receiptNumber String?   @db.VarChar(100)
+  receiptQrValue String?  @db.VarChar(500)
   issuedAt      DateTime?
 
   failureCode    String? @db.VarChar(100)

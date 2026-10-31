@@ -96,6 +96,7 @@ export class SqlServerFiscalizationRepository implements FiscalizationRepository
       data: {
         status: databaseRecord.status,
         receiptNumber: databaseRecord.receiptNumber,
+        receiptQrValue: databaseRecord.receiptQrValue,
         issuedAt: databaseRecord.issuedAt,
         failureCode: databaseRecord.failureCode,
         failureMessage: databaseRecord.failureMessage,

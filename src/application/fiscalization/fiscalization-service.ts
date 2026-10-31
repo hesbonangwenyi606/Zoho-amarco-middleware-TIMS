@@ -21,7 +21,6 @@ export interface StartFiscalizationInput {
   readonly invoice: FiscalInvoiceCandidate;
 }
 
-
 /**
  * Thrown when a record cannot be claimed for processing.
  */
@@ -62,18 +61,23 @@ export class FiscalizationService {
     });
     await this.repository.create(pending);
 
+    return this.processPending(pending.id, input.invoice);
+  }
+
+  /** Processes a previously registered Pending record, for the background mock queue. */
+  async processPending(id: string, invoice: FiscalInvoiceCandidate): Promise<FiscalizationRecord> {
     // Step 2: Atomically claim Pending -> InProgress.
-    const claimed = await this.repository.claimPending(pending.id);
+    const claimed = await this.repository.claimPending(id);
 
     if (claimed === null) {
-      throw new FiscalizationClaimError(pending.id);
+      throw new FiscalizationClaimError(id);
     }
 
     // Step 3: Call the device exactly once.
     let result: FiscalDeviceResult | undefined;
 
     try {
-      result = await this.device.issueReceipt(input.invoice);
+      result = await this.device.issueReceipt(invoice);
     } catch {
       // An exception or timeout does not prove that no receipt was issued.
       result = undefined;
@@ -122,11 +126,11 @@ export class FiscalizationService {
     try {
       saved = await this.repository.saveOutcome(outcome);
     } catch {
-      throw new FiscalizationPersistenceError(pending.id);
+      throw new FiscalizationPersistenceError(id);
     }
 
     if (!saved) {
-      throw new FiscalizationPersistenceError(pending.id);
+      throw new FiscalizationPersistenceError(id);
     }
 
     return outcome;

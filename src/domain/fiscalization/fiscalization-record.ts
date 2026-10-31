@@ -12,6 +12,9 @@ export interface FiscalReceipt {
 
   /** The date and time the receipt was issued, if confirmed. */
   readonly issuedAt: Date;
+
+  /** Test placeholder only in MOCK mode; never a real fiscal QR payload. */
+  readonly qrValue?: string;
 }
 
 /**

@@ -75,6 +75,7 @@ export function completeFiscalization(
     receipt: {
       receiptNumber: receipt.receiptNumber.trim(),
       issuedAt: new Date(receipt.issuedAt.getTime()),
+      ...(receipt.qrValue ? { qrValue: receipt.qrValue.trim() } : {}),
     },
     failure: null,
     outcomeUnknownReason: null,

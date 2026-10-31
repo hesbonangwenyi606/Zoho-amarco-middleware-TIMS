@@ -142,6 +142,7 @@ export class PostgresqlFiscalizationRepository implements FiscalizationRepositor
       data: {
         status: databaseRecord.status,
         receiptNumber: databaseRecord.receiptNumber,
+        receiptQrValue: databaseRecord.receiptQrValue,
         issuedAt: databaseRecord.issuedAt,
         failureCode: databaseRecord.failureCode,
         failureMessage: databaseRecord.failureMessage,
