@@ -42,6 +42,18 @@ Invoke-RestMethod 'http://localhost:3001/health/live'
 Invoke-RestMethod 'http://localhost:3001/health/ready'
 ```
 
+## React dashboard
+
+Run the API in one PowerShell window, then start the frontend in a second:
+
+```powershell
+pnpm.cmd web:dev
+```
+
+Open `http://127.0.0.1:5173`. The dashboard uses a Vite proxy to reach the API on port `3001`. Paste the local `INVOICE_API_BEARER_TOKEN` into the dashboard; it stays in browser memory and is not saved. The dashboard supports invoice candidate preview, explicitly confirmed MOCK request creation and status polling, and read-only Tremol diagnostics. It does not issue live receipts.
+
+Build the static frontend with `pnpm.cmd web:build`; check its TypeScript with `pnpm.cmd typecheck:web`. For a local fake device, follow [Test with the local fake G03](docs/FAKE_G03_TEST.md).
+
 ## Main API routes
 
 Invoice and Tremol routes require `Authorization: Bearer <INVOICE_API_BEARER_TOKEN>`.
