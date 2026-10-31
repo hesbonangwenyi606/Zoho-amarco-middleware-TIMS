@@ -4,7 +4,7 @@
 
 > **Project status: Core foundation and initial Zoho Books integration implemented; device and regulatory integrations remain in progress.**
 >
-> The current codebase includes the fiscalization domain and application service, PostgreSQL and SQL Server persistence implementations, automated tests, Zoho OAuth authorization and callback handling, Zoho Books invoice retrieval, and read-only invoice-to-fiscal-candidate mapping. Live Zoho integration still requires environment configuration and verification. Verified Tremol G03 receipt issuance and KRA/eTIMS integration remain pending confirmation of the applicable device protocols, APIs, and compliance requirements.
+> The current codebase includes Zoho invoice mapping and a development-only MOCK receipt simulator. MOCK records `TEST-` receipt numbers and placeholder QR values without contacting hardware or KRA. MOCK can optionally write test values to Zoho custom fields. Real Tremol G03 receipt issuance and KRA/TIMS integration remain unimplemented and must not be treated as live fiscalization. See [Level 1 MOCK Test](docs/LEVEL_1_MOCK_TEST.md).
 
 ## Table of Contents
 
@@ -21,6 +21,9 @@
 - [Fiscalization Workflow](#fiscalization-workflow)
 - [Testing and Quality Checks](#testing-and-quality-checks)
 - [Device Integration](#device-integration)
+- [On-site CU Connection Steps](#on-site-cu-connection-steps)
+- [Tremol G03 CU Connection Guide](docs/CU_CONNECTION_GUIDE.md)
+- [Armco G03 Remaining Work Runbook](docs/ARMCO_TREMOL_REMAINING_WORK_RUNBOOK.md)
 - [Zoho Books Integration Roadmap](#zoho-books-integration-roadmap)
 - [Security and Reliability](#security-and-reliability)
 - [Git Workflow](#git-workflow)
@@ -71,7 +74,7 @@ The middleware is designed to run on a customer's Windows or Linux server, depen
 
 The project separates business rules from database and external-system implementations.
 
-The current Zoho integration is a read-only path. The fiscalization domain and application service provide a foundation for later processing, but the invoice endpoints do not currently trigger the complete fiscalization workflow.
+Zoho invoice retrieval is read-only. The fiscalization-request endpoint can queue a development-only MOCK result when `FISCAL_MODE=MOCK`; optional Zoho custom-field write-back is available when configured. It does not represent a KRA/TIMS receipt.
 
 ```text
 Zoho Books
@@ -116,7 +119,7 @@ KRA/eTIMS Integration
 
 ### Current integration boundary
 
-The Zoho invoice endpoints currently stop at invoice retrieval or read-only fiscal-candidate mapping. They do not issue fiscal receipts, send device commands, create fiscalization requests as part of mapping, or submit invoice data to KRA/eTIMS.
+The Zoho invoice endpoints do not send device commands or submit invoice data to KRA/TIMS. MOCK mode simulates a result only for invoice numbers beginning with `MOCK_INVOICE_NUMBER_PREFIX` (default `TRAIN-`).
 
 The intended end-to-end workflow will only be connected after the invoice mapping, device protocol, receipt reconciliation, and applicable regulatory requirements have been verified.
 
@@ -333,7 +336,7 @@ The SQL Server connection settings are used by the SQL Server adapter. When sele
 
 ### Zoho Books OAuth settings
 
-The application supports a Zoho Books OAuth authorization flow and read-only invoice retrieval.
+The application supports a Zoho Books OAuth authorization flow, organization discovery, and read-only invoice retrieval.
 
 | Variable                    | Purpose                                                                                                                                                    |
 | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -343,8 +346,9 @@ The application supports a Zoho Books OAuth authorization flow and read-only inv
 | `ZOHO_ORGANIZATION_ID`      | Zoho Books organization ID. Required for invoice retrieval and invoice mapping.                                                                            |
 | `ZOHO_REDIRECT_URI`         | OAuth callback URI registered in the Zoho API Console. Defaults to `http://localhost:3000/integrations/zoho/callback`.                                     |
 | `ZOHO_ACCOUNTS_URL`         | Zoho Accounts authorization server URL for the organization's data center. Defaults to `https://accounts.zoho.com`.                                        |
+| `INVOICE_API_BEARER_TOKEN`  | Private token required in the `Authorization: Bearer ...` header for Zoho invoice and fiscalization-request endpoints. Use at least 32 characters.         |
 
-The OAuth service is initialized only when `ZOHO_CLIENT_ID`, `ZOHO_CLIENT_SECRET`, and `ZOHO_OAUTH_ENCRYPTION_KEY` are configured. The client ID and client secret must be supplied together.
+The OAuth service is initialized only when `ZOHO_CLIENT_ID`, `ZOHO_CLIENT_SECRET`, and `ZOHO_OAUTH_ENCRYPTION_KEY` are configured. The client ID and client secret must be supplied together. OAuth requests `ZohoBooks.invoices.READ`, `ZohoBooks.settings.READ`, and `ZohoBooks.invoices.UPDATE` for optional MOCK write-back. Reauthorize the Zoho connection to grant the added update scope.
 
 Invoice retrieval and fiscal-candidate mapping are initialized only when OAuth is available and `ZOHO_ORGANIZATION_ID` is configured.
 
@@ -390,6 +394,9 @@ ZOHO_OAUTH_ENCRYPTION_KEY=replace_with_a_64_character_hex_key
 
 # Required for invoice retrieval and fiscal-candidate mapping.
 ZOHO_ORGANIZATION_ID=replace_with_your_organization_id
+
+# Required in the Authorization: Bearer header for invoice API requests.
+INVOICE_API_BEARER_TOKEN=replace_with_a_private_32_character_or_longer_token
 
 ZOHO_REDIRECT_URI=http://localhost:3000/integrations/zoho/callback
 ZOHO_ACCOUNTS_URL=https://accounts.zoho.com
@@ -562,17 +569,31 @@ These responses describe the implemented application behavior; successful live a
 
 ### Zoho Books invoice endpoints
 
-| Method | Endpoint                                                  | Purpose                                                                      |
-| ------ | --------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| `GET`  | `/integrations/zoho/invoices/:invoiceId`                  | Retrieves the requested Zoho Books invoice.                                  |
-| `GET`  | `/integrations/zoho/invoices/:invoiceId/fiscal-candidate` | Retrieves the invoice and maps it into the internal fiscal-candidate format. |
+| Method | Endpoint                                                        | Purpose                                                                                            |
+| ------ | --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `GET`  | `/integrations/zoho/organizations`                              | Lists organization IDs and names visible to the connected Zoho user.                               |
+| `GET`  | `/integrations/zoho/invoices/:invoiceId`                        | Retrieves the requested Zoho Books invoice.                                                        |
+| `GET`  | `/integrations/zoho/invoices/:invoiceId/fiscal-candidate`       | Retrieves the invoice and maps it into the internal fiscal-candidate format.                       |
+| `POST` | `/integrations/zoho/invoices/:invoiceId/fiscalization-requests` | Validates and registers a pending request; in development MOCK mode it processes after 30 seconds. |
+| `GET`  | `/integrations/zoho/fiscalization-requests/:requestId`          | Retrieves the status of a registered fiscalization request.                                        |
 
-Invoice retrieval requires a configured OAuth service and `ZOHO_ORGANIZATION_ID`. The mapping endpoint additionally requires the invoice mapping service, which is initialized when invoice retrieval is configured.
+These endpoints require the configured `INVOICE_API_BEARER_TOKEN` in an `Authorization: Bearer <token>` header. Organization discovery requires the connected Zoho user to grant `ZohoBooks.settings.READ`, but does not require `ZOHO_ORGANIZATION_ID`. Invoice retrieval also requires a configured OAuth service and `ZOHO_ORGANIZATION_ID`. Mapping and request registration require the invoice mapping service.
+
+After updating the application, rebuild and restart it, then visit `/integrations/zoho/authorize` and complete authorization again to grant the new settings scope. List accessible organizations from PowerShell:
+
+```powershell
+$line = Get-Content .env | Where-Object { $_ -match '^INVOICE_API_BEARER_TOKEN=' } | Select-Object -First 1
+$token = ($line -split '=', 2)[1].Trim('"')
+Invoke-RestMethod -Uri 'http://localhost:3001/integrations/zoho/organizations' -Headers @{ Authorization = "Bearer $token" }
+```
+
+Set `ZOHO_ORGANIZATION_ID` in the private `.env` to the ID of the organization containing the target invoice, then restart the application before requesting the invoice.
 
 Retrieve an invoice:
 
 ```bash
 curl -i \
+  -H "Authorization: Bearer YOUR_INVOICE_API_BEARER_TOKEN" \
   http://localhost:3000/integrations/zoho/invoices/YOUR_INVOICE_ID
 ```
 
@@ -580,7 +601,16 @@ Retrieve a fiscal candidate:
 
 ```bash
 curl -i \
+  -H "Authorization: Bearer YOUR_INVOICE_API_BEARER_TOKEN" \
   http://localhost:3000/integrations/zoho/invoices/YOUR_INVOICE_ID/fiscal-candidate
+```
+
+Register a pending request without issuing a receipt:
+
+```bash
+curl -i -X POST \
+  -H "Authorization: Bearer YOUR_INVOICE_API_BEARER_TOKEN" \
+  http://localhost:3000/integrations/zoho/invoices/YOUR_INVOICE_ID/fiscalization-requests
 ```
 
 Replace `YOUR_INVOICE_ID` with a real Zoho Books invoice ID accessible to the configured Zoho organization.
@@ -604,11 +634,12 @@ Confirm exact response formats and error behavior against the route implementati
 
 ### Important safety boundary
 
-Both invoice endpoints are read-only. The fiscal-candidate endpoint validates and maps invoice data; it does not:
+The invoice retrieval and fiscal-candidate endpoints are read-only. In MOCK mode the request endpoint stores a pending request and simulates a marked test result after 30 seconds. MOCK accepts invoice numbers beginning with `MOCK_INVOICE_NUMBER_PREFIX` (default `TRAIN-`) and refuses MOCK in production. It never sends a CU command or contacts KRA. Zoho write-back is optional until the four custom-field IDs are configured and the OAuth connection is reauthorized with `ZohoBooks.invoices.UPDATE`.
+
+No endpoint:
 
 - Issue a fiscal receipt.
-- Send commands to a Tremol G03 device.
-- Persist a new fiscalization request as part of the mapping operation.
+- Send commands to a Tremol G03 device or progress a request to `InProgress`.
 - Submit invoice data to KRA/eTIMS.
 
 A successful mapping is not proof that an invoice meets all fiscal-device or Kenyan tax requirements. Those requirements must be verified before device execution is implemented.
@@ -731,6 +762,87 @@ Before enabling real receipt issuance, verify:
 - Safe device initialization, concurrency, and operational recovery.
 
 Do not assume that a generic Tremol example establishes the correct Kenya-specific fiscalization protocol. Hardware testing must use a controlled environment and must not create unplanned live fiscal receipts.
+
+### On-site CU Connection Steps
+
+Use this checklist at the Armco premises with the CU operator present. The current middleware supports only a read-only client foundation; it does not expose a CU diagnostics API or issue fiscal receipts.
+
+1. **Meet the CU operator and confirm the approved test window.** Ask the operator to confirm the unit is available for read-only checks and no sale or service operation is in progress. This avoids interrupting normal CU operations.
+2. **Identify the CU and gateway PC.** Record the CU model/serial number, firmware and mode, gateway hostname/IP, and ZFPLabServer version. This ensures the correct device and server are being checked.
+3. **Ask the operator to confirm the CU is idle/ready.** Do not press CU keys, change settings, or open/close a receipt. This preserves the live fiscal state.
+4. **On the gateway PC, confirm ZFPLabServer is running.** Verify its test page, port, and URL syntax against the installed version's vendor manual. This checks local service-to-device communication before troubleshooting the network.
+5. **Run these read-only commands locally, one at a time, using the vendor-approved URLs:**
+
+   ```powershell
+   $zfp = 'http://localhost:8000'
+   (Invoke-WebRequest -Uri "$zfp/ReadStatus()" -TimeoutSec 10).Content
+   (Invoke-WebRequest -Uri "$zfp/ReadVersion()" -TimeoutSec 10).Content
+   (Invoke-WebRequest -Uri "$zfp/ReadCurrentReceiptInfo()" -TimeoutSec 10).Content
+   (Invoke-WebRequest -Uri "$zfp/ReadLastAndTotalReceiptNum()" -TimeoutSec 10).Content
+   ```
+
+   These reads check CU status and identity, whether a receipt is currently open, and the starting receipt counters. Do not run the next command until the current response has returned.
+
+6. **Check each response with the operator.** Expected transport/protocol success is HTTP `200` and XML containing `<Res Code="0">`; confirm command-specific values with the vendor manual/operator. Stop if a receipt is open, status is not ready, a command errors, or a value is unexpected. This avoids acting on an uncertain CU state.
+7. **Only after local checks pass, test the approved route from the middleware host.** Ask Armco IT to approve access, then run:
+
+   ```powershell
+   $gatewayIp = 'GATEWAY_IP'
+   Test-NetConnection $gatewayIp -Port 8000
+   ```
+
+   `TcpTestSucceeded : True` means the host can reach that TCP port; it does not prove CU readiness. This step checks the middleware-to-gateway network path separately from the local CU connection. Do not expose port `8000` to the public internet.
+
+8. **Record results and agree the next owner/action with the operator and IT.** Include timestamp, host, command, HTTP/result code, and sanitized outcome. This gives the team a traceable baseline and avoids repeating checks without context.
+
+**Stop after read-only verification.** Do not test receipt issuance or use a live invoice during this connection check. Receipt commands are not implemented or verified in this application; any later fiscal test needs a separately approved test plan and reconciliation procedure. See the detailed [Tremol G03 CU Connection Guide](docs/CU_CONNECTION_GUIDE.md).
+
+#### Find the gateway PC IP and ZFPLabServer port
+
+Run these commands in PowerShell on the Windows computer physically connected to the CU. They inspect network and listener settings only; they do not send commands to the CU.
+
+1. **Find the computer's active LAN IP and router gateway:**
+
+   ```powershell
+   Get-NetIPConfiguration |
+     Where-Object { $_.NetAdapter.Status -eq 'Up' } |
+     ForEach-Object {
+       [pscustomobject]@{
+         Adapter       = $_.InterfaceAlias
+         ComputerIPv4  = ($_.IPv4Address.IPAddress -join ', ')
+         RouterGateway = ($_.IPv4DefaultGateway.NextHop -join ', ')
+       }
+     } | Format-Table -AutoSize
+   ```
+
+   Use **ComputerIPv4** as the gateway PC address to give Armco IT for middleware-to-PC connectivity. **RouterGateway** is the router's address, not the PC's address and usually not the CU's address. If there are multiple adapters, ask IT which active adapter is on the CU/ZFPLabServer network. `ipconfig` is a simpler alternative for viewing all adapter addresses.
+
+2. **Check whether a process is listening on the confirmed ZFPLabServer port `8000`:**
+
+   ```powershell
+   Get-NetTCPConnection -State Listen -LocalPort 8000 -ErrorAction SilentlyContinue |
+     Select-Object LocalAddress, LocalPort, OwningProcess
+   ```
+
+   A row means a local process has opened a listener on port `8000`. `0.0.0.0` or the PC's LAN IPv4 under **LocalAddress** indicates it may accept LAN connections; `127.0.0.1` indicates loopback-only access. No rows means there is no matching TCP listener visible; confirm ZFPLabServer is running and check its configured port with the gateway owner. This command does not itself prove CU communication works.
+
+3. **Identify the process for the listener, if one was returned:**
+
+   ```powershell
+   $listener = Get-NetTCPConnection -State Listen -LocalPort 8000 -ErrorAction SilentlyContinue |
+     Select-Object -First 1
+   if ($listener) { Get-Process -Id $listener.OwningProcess }
+   ```
+
+   This helps IT confirm the listener belongs to the expected server. Share only the process name and PID as needed; do not change firewall or service settings without IT approval.
+
+4. **After IT approves the route, test from the middleware computer:**
+
+   ```powershell
+   Test-NetConnection 'GATEWAY_PC_IPV4' -Port 8000
+   ```
+
+   Replace the placeholder with **ComputerIPv4** from step 1. `TcpTestSucceeded : True` confirms only TCP reachability to that PC and port; it does not establish that the CU is ready or that fiscal commands are safe.
 
 ## Zoho Books Integration Roadmap
 
@@ -910,3 +1022,5 @@ If Git operations display a missing `gh auth git-credential` executable path, in
 ---
 
 **Project principle:** Never assume a fiscal operation succeeded merely because a command was sent, and never repeat an uncertain fiscal operation without first establishing its actual outcome.
+#   Z o h o - a m a r c o - m i d d l e w a r e - T I M S  
+ 
