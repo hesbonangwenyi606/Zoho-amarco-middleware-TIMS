@@ -71,3 +71,4 @@ Invoice and Tremol routes require `Authorization: Bearer <INVOICE_API_BEARER_TOK
 - Leave fiscalization disabled until you are deliberately running the MOCK test. Do not use LIVE mode until the real-device integration and the required business checks are complete.
 
 See [CU connection guide](docs/CU_CONNECTION_GUIDE.md) and [remaining work runbook](docs/ARMCO_TREMOL_REMAINING_WORK_RUNBOOK.md) for device setup and project status.
+To exercise the read-only device diagnostics without hardware, follow [Test with the local fake G03](docs/FAKE_G03_TEST.md).
