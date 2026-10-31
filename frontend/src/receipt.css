@@ -1,0 +1,259 @@
+.receipt-preview {
+  margin: 28px 0;
+}
+.receipt-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.receipt-scroll {
+  overflow-x: auto;
+  border: 1px solid #d5deeb;
+  background: #edf1f6;
+  padding: 16px;
+}
+.armco-receipt {
+  box-sizing: border-box;
+  min-width: 740px;
+  max-width: 1000px;
+  min-height: 1120px;
+  margin: auto;
+  padding: 26px;
+  background: white;
+  color: #101820;
+  font:
+    12px/1.4 Arial,
+    sans-serif;
+}
+.armco-receipt * {
+  box-sizing: border-box;
+}
+.receipt-header {
+  display: grid;
+  grid-template-columns: 1fr 1.1fr 1fr;
+  align-items: start;
+  gap: 16px;
+  margin-bottom: 20px;
+  color: #073969;
+  text-align: center;
+}
+.armco-receipt .receipt-header h2 {
+  margin: 0 0 5px;
+  font-size: 20px;
+}
+.armco-receipt .receipt-header h1 {
+  margin: 0;
+  font-size: 23px;
+}
+.receipt-armco {
+  font-size: 38px;
+  font-style: italic;
+  font-weight: 900;
+  letter-spacing: -2px;
+}
+.receipt-armco span {
+  color: #c5000b;
+}
+.receipt-toshiba {
+  color: #d00008;
+  font-size: 33px;
+  font-weight: 900;
+  letter-spacing: 1px;
+}
+.receipt-parties {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12%;
+}
+.receipt-parties section {
+  border: 1px solid #24598c;
+  border-radius: 2px;
+  padding: 10px 12px;
+  min-height: 187px;
+}
+.armco-receipt h3 {
+  margin: 0 0 9px;
+  color: #073969;
+  font-size: 14px;
+}
+.armco-receipt p {
+  margin: 0 0 9px;
+  white-space: pre-line;
+}
+.receipt-pin {
+  padding-top: 20px;
+}
+.armco-receipt .receipt-cu-heading {
+  margin: 12px 0 7px;
+  text-align: right;
+  color: #073969;
+  font-weight: 700;
+}
+.receipt-cu-heading strong {
+  margin-left: 14px;
+}
+.armco-receipt table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  margin: 0;
+  font-size: 10px;
+}
+.armco-receipt th,
+.armco-receipt td {
+  border: 1px solid #8faac3;
+  padding: 8px 5px;
+  color: #101820;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-transform: none;
+  letter-spacing: normal;
+}
+.armco-receipt .receipt-meta th {
+  background: #2d6397;
+  color: white;
+  text-align: center;
+}
+.receipt-meta td {
+  text-align: center;
+}
+.armco-receipt .receipt-items th {
+  background: #d7e6f2;
+  color: #073969;
+}
+.receipt-items th:nth-child(2) {
+  width: 26%;
+}
+.receipt-items td:nth-child(n + 5) {
+  text-align: right;
+}
+.receipt-notes {
+  min-height: 220px;
+  padding: 20px 0;
+  white-space: pre-wrap;
+}
+.receipt-bottom {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 24px;
+}
+.receipt-signature {
+  border: 1px solid #24598c;
+  padding: 13px 9px;
+  margin-bottom: 18px;
+  font-size: 10px;
+}
+.receipt-terms {
+  white-space: pre-wrap;
+  font-size: 10px;
+  line-height: 1.7;
+}
+.receipt-totals {
+  border: 1px solid #24598c;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.receipt-totals > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 5px 9px;
+  border-bottom: 1px solid #d7e6f2;
+}
+.receipt-totals > div:last-child {
+  background: #d7e6f2;
+  color: #073969;
+  border: 0;
+  font-weight: 700;
+}
+.receipt-control {
+  display: grid;
+  grid-template-columns: 1fr 110px;
+  gap: 10px;
+  margin-top: 22px;
+}
+.receipt-control h3 {
+  padding: 4px 6px;
+  background: #d7e6f2;
+  border-block: 1px solid #8faac3;
+}
+.receipt-control dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px 8px;
+  font-size: 10px;
+}
+.receipt-control dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.receipt-qr {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 10px;
+}
+.receipt-qr img {
+  width: 110px;
+  height: 110px;
+}
+.receipt-footer {
+  border-top: 1px solid #24598c;
+  margin-top: 28px;
+  padding-top: 10px;
+  text-align: center;
+  font-size: 15px;
+  font-weight: bold;
+  color: #073969;
+}
+.receipt-test {
+  border: 2px solid #a63922;
+  padding: 8px;
+  margin-bottom: 16px;
+  text-align: center;
+  color: #a63922;
+  font-weight: bold;
+}
+@media print {
+  @page {
+    size: A4;
+    margin: 10mm;
+  }
+  body * {
+    visibility: hidden;
+  }
+  .armco-receipt,
+  .armco-receipt * {
+    visibility: visible;
+  }
+  .armco-receipt {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 190mm;
+    min-width: 0;
+    max-width: none;
+    min-height: 0;
+    padding: 0;
+    margin: 0;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  .receipt-scroll {
+    overflow: visible;
+    border: 0;
+    padding: 0;
+  }
+  .receipt-parties,
+  .receipt-bottom,
+  .receipt-control,
+  .receipt-totals,
+  .receipt-signature {
+    break-inside: avoid;
+  }
+  .armco-receipt tr {
+    break-inside: avoid;
+  }
+}

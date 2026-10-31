@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import localApiToken from "virtual:local-api-token";
 import { InvoiceDetails, type InvoiceSource } from "./InvoiceDetails";
+import { InvoiceReceipt } from "./InvoiceReceipt";
 
 type Page = "overview" | "invoice" | "device";
 type HealthResult = "checking" | "online" | "offline";
@@ -182,12 +183,14 @@ export default function App() {
     setFiscalRequest(null);
     setRequestError("");
     try {
-      const [result, invoiceResult] = await Promise.all([apiRequest<{ candidate: Candidate }>(
+      const [result, invoiceResult] = await Promise.allSettled([apiRequest<{ candidate: Candidate }>(
         `/integrations/zoho/invoices/${encodeURIComponent(invoiceId.trim())}/fiscal-candidate`,
         token.trim(),
       ), apiRequest<{ invoice: { source: InvoiceSource } }>(`/integrations/zoho/invoices/${encodeURIComponent(invoiceId.trim())}`, token.trim())]);
-      setCandidate(result.candidate);
-      setInvoiceSource(invoiceResult.invoice.source);
+      if (invoiceResult.status === "fulfilled") setInvoiceSource(invoiceResult.value.invoice.source);
+      else throw invoiceResult.reason;
+      if (result.status === "fulfilled") setCandidate(result.value.candidate);
+      else setCandidateError("Invoice loaded for printing. Fiscal mapping is unavailable: " + (result.reason instanceof Error ? result.reason.message : "Could not map invoice."));
     } catch (error) {
       setCandidateError(error instanceof Error ? error.message : "Could not load the invoice.");
     } finally {
@@ -348,13 +351,13 @@ export default function App() {
               </div>
               <form onSubmit={loadCandidate} className="lookup-form"><label htmlFor="invoice-id">Zoho invoice record ID</label><div className="input-with-action"><input id="invoice-id" placeholder="e.g. 1462401000015947001" value={invoiceId} onChange={(event) => setInvoiceId(event.target.value)} /><button className="primary-button" disabled={candidateBusy || !token.trim()}>{candidateBusy ? <Spinner /> : "Load invoice"}</button></div><div className="form-help">Uses the Zoho Books invoice ID, not the invoice number printed on the document.</div></form>
               {candidateError && <div className="inline-alert error-alert">{candidateError}</div>}
-              {!candidate && !candidateBusy && <div className="empty-state"><div className="empty-icon"><Icon name="invoice" /></div><strong>No invoice loaded</strong><p>Enter an invoice record ID above to inspect customer, lines, tax metadata, and totals.</p></div>}
+              {!invoiceSource && !candidate && !candidateBusy && <div className="empty-state"><div className="empty-icon"><Icon name="invoice" /></div><strong>No invoice loaded</strong><p>Enter an invoice record ID above to inspect customer, lines, tax metadata, and totals.</p></div>}
+              {invoiceSource && <><InvoiceReceipt source={invoiceSource} /><details><summary>Additional invoice details</summary><InvoiceDetails source={invoiceSource} /></details></>}
               {candidate && <div className="candidate-content">
                 <div className="invoice-title-row"><div><span className="eyebrow">CANDIDATE LOADED</span><h3>{candidate.invoiceNumber || "Unnumbered invoice"}</h3><p>{candidate.customerName || "Customer not supplied"}</p></div><span className="status-pill green"><i /> Mapping ready</span></div>
                 <div className="detail-grid"><Detail label="Zoho invoice ID" value={candidate.zohoInvoiceId} /><Detail label="Currency" value={candidate.currencyCode} /><Detail label="Line items" value={String(candidate.lines.length)} /></div>
                 <div className="table-wrap"><table><thead><tr><th>ITEM</th><th>QTY</th><th>UNIT PRICE</th><th>LINE TOTAL</th></tr></thead><tbody>{candidate.lines.map((line, index) => <tr key={`${candidate.zohoInvoiceId}-${index}`}><td><strong>{line.description || "Unnamed item"}</strong><small>{line.taxName || "Tax metadata unavailable"}{line.taxPercentage ? ` · ${line.taxPercentage}%` : ""}</small></td><td>{line.quantity}</td><td>{money(line.unitPrice, candidate.currencyCode)}</td><td>{money(line.lineTotal, candidate.currencyCode)}</td></tr>)}</tbody></table></div>
                 <div className="totals"><div><span>Subtotal</span><strong>{money(candidate.subtotal, candidate.currencyCode)}</strong></div><div><span>Tax total</span><strong>{money(candidate.taxTotal, candidate.currencyCode)}</strong></div><div className="grand-total"><span>Total</span><strong>{money(candidate.total, candidate.currencyCode)}</strong></div></div>
-                {invoiceSource && <InvoiceDetails source={invoiceSource} />}
                 <div className="mock-request-box"><div className="mock-box-copy"><span className="eyebrow">OPTIONAL · MOCK ONLY</span><strong>Create a training request</strong><p>Checks the server prefix before creating. The server must be running with <code>FISCAL_MODE=MOCK</code>.</p><label htmlFor="training-prefix">Configured training invoice prefix</label><input id="training-prefix" value={trainingPrefix} onChange={(event) => setTrainingPrefix(event.target.value)} /></div><button className="secondary-button" onClick={() => void createMockRequest()} disabled={requestBusy || !trainingInvoice || !token.trim()}>{requestBusy ? <Spinner /> : "Create MOCK request"}</button></div>
                 {!trainingInvoice && <div className="form-help warning-text">Invoice number must start with the prefix above. The server checks its own configured prefix too.</div>}
                 {requestError && <div className="inline-alert error-alert">{requestError}</div>}
