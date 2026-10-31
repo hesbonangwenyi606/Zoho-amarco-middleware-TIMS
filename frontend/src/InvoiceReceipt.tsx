@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
 import type { InvoiceSource } from "./InvoiceDetails";
+import { fiscalDetails } from "./fiscal-details";
 import "./receipt.css";
 
 function value(input: unknown, fallback = "—"): string {
@@ -29,10 +30,11 @@ export function InvoiceReceipt({ source }: { source: InvoiceSource }) {
     );
     return found ? value(found.value ?? found.value_formatted) : "—";
   };
-  const cu = field(/\bcu\s*(?:invoice\s*)?(?:no\b|number\b)|control unit.*(?:no\b|number\b)/i);
-  const serial = field(/serial|\bcu\s*s\/n/i);
-  const qr = field(/\bqr\b/i);
-  const fiscalDate = field(/fiscalized at|fiscal.*date|cu.*date/i);
+  const fiscal = fiscalDetails(source, import.meta.env.DEV);
+  const cu = fiscal.cu || "—";
+  const serial = fiscal.serial || "—";
+  const qr = fiscal.qr || "—";
+  const fiscalDate = fiscal.date || "—";
   const [qrImage, setQrImage] = useState<{ value: string; url: string } | null>(null);
   const [qrError, setQrError] = useState("");
   useEffect(() => {
@@ -60,7 +62,7 @@ export function InvoiceReceipt({ source }: { source: InvoiceSource }) {
       ? amount.toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
       : "—";
   };
-  const isTest = [cu, qr, field(/fiscal.*status/i)].some((item) => /test|mock|train/i.test(item));
+  const isTest = fiscal.isTest;
   return (
     <div className="receipt-preview">
       <div className="receipt-toolbar">

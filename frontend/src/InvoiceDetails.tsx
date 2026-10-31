@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
+import { fiscalDetails } from "./fiscal-details";
 
 export interface InvoiceSource {
   [key: string]: unknown;
@@ -16,20 +17,10 @@ export function InvoiceDetails({ source }: { source: InvoiceSource }) {
         (field): field is Record<string, unknown> => typeof field === "object" && field !== null,
       )
     : [];
-  const find = (pattern: RegExp) => {
-    const field = fields.find((field) =>
-      pattern.test(
-        [field.label, field.api_name, field.placeholder]
-          .filter(Boolean)
-          .join(" ")
-          .replace(/_/g, " "),
-      ),
-    );
-    return field ? text(field.value ?? field.value_formatted) : "Not provided";
-  };
-  const cuNumber = find(/\bcu\s*(?:invoice\s*)?(?:no\b|number\b)|control unit.*(?:no\b|number\b)/i);
-  const serial = find(/serial|\bcu\s*(?:serial|s\/n)/i);
-  const qr = find(/\bqr\b/i);
+  const fiscal = fiscalDetails(source, import.meta.env.DEV);
+  const cuNumber = fiscal.cu || "Not provided";
+  const serial = fiscal.serial || "Not provided";
+  const qr = fiscal.qr || "Not provided";
   const [qrImage, setQrImage] = useState("");
   const [qrError, setQrError] = useState("");
   useEffect(() => {
@@ -64,7 +55,7 @@ export function InvoiceDetails({ source }: { source: InvoiceSource }) {
         </figure>
       )}
       {qrError && <p role="alert">{qrError}</p>}
-      {qr.startsWith("TEST-") && (
+      {fiscal.isTest && (
         <p className="warning-text">This invoice contains a test QR placeholder.</p>
       )}
       <p className="form-help">

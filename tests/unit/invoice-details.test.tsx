@@ -23,9 +23,11 @@ describe("invoice fiscal details", () => {
     expect(html).toContain("Nairobi");
   });
 
-  it("shows absent fiscal values without inventing identifiers", () => {
+  it("fills missing fiscal values with labeled development previews", () => {
     const html = renderToStaticMarkup(<InvoiceDetails source={{ invoice_id: "123" }} />);
-    expect(html.match(/Not provided/g)?.length).toBeGreaterThanOrEqual(3);
+    expect(html).toContain("TEST-CU-123");
+    expect(html).toContain("TEST-PREVIEW-DEVICE");
+    expect(html).toContain("TEST_PREVIEW_NOT_A_TAX_RECEIPT");
     expect(html).not.toContain("<img");
   });
 
