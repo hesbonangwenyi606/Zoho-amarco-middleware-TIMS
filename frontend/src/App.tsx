@@ -268,7 +268,7 @@ export default function App() {
 
         <div className="page-wrap">
           <div className="page-heading">
-            <div><div className="eyebrow">ZOHO BOOKS · TREМOL G03</div><h1>{title}</h1><p>Monitor the invoice workflow and run safe local diagnostics.</p></div>
+            <div><div className="eyebrow">ZOHO BOOKS · TREMOL G03</div><h1>{title}</h1><p>Monitor the invoice workflow and run safe local diagnostics.</p></div>
             <div className="environment-pill"><span className="environment-dot" /> DEVELOPMENT</div>
           </div>
 
