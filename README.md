@@ -1,27 +1,27 @@
 # Zoho Amarco Middleware
 
-This service connects Zoho Books invoices to a fiscalization workflow for Armco. It reads invoice data from Zoho, records a fiscalization request in its database, and provides a safe MOCK mode for development.
+This service provides Armco with a Zoho Books invoice integration and a tracked fiscalization workflow. The middleware foundation and Level 1 MOCK workflow are implemented, including safe test receipts, duplicate protection, status tracking, and optional Zoho custom-field updates.
 
-## What it does today
+## Delivered capabilities
 
 - Connects to Zoho Books using OAuth.
 - Reads invoice details and prepares an invoice for fiscalization.
 - Saves each fiscalization request and prevents a second request for the same Zoho invoice.
-- In `MOCK` mode, waits about 30 seconds and returns a **test** receipt number and placeholder QR value. It can simulate a one-time failure and retry.
+- In `MOCK` mode, simulates processing and returns a **test** receipt number and placeholder QR value. It can simulate a one-time failure and retry.
 - Can write the test status, receipt number, QR value, and timestamp to Zoho invoice custom fields when configured.
 - Provides health endpoints and uses PostgreSQL or SQL Server through Prisma.
 
-## What it does not do yet
+## Deployment status
 
-The real Tremol G03 adapter is not implemented. The middleware does not currently send receipts to the G03 or KRA, and MOCK receipts are not tax receipts. Do not set `FISCAL_MODE=LIVE` for real invoices. Device diagnostics and read-only checks still need to be connected and verified as part of the device integration.
+The middleware and Level 1 MOCK workflow are ready for development and training use. Live fiscalization is a separate commissioning phase: the real Tremol G03 adapter, device diagnostics, and end-to-end verification with the device and applicable KRA/TIMS requirements remain to be completed. MOCK receipts are test data, not tax receipts. Do not use `FISCAL_MODE=LIVE` for real invoices until that work is complete and approved.
 
 ## How the flow works
 
-1. The middleware gets invoice data from Zoho Books.
-2. It checks and maps the invoice for fiscalization.
-3. It creates a pending request and blocks duplicates.
-4. In `MOCK` mode, it simulates processing and saves a test receipt.
-5. If Zoho custom-field write-back is configured, it updates the invoice with the test result.
+1. The middleware retrieves invoice data from Zoho Books and prepares the fiscalization candidate.
+2. It records a pending request and prevents duplicate requests for the same invoice.
+3. In `MOCK` mode, it simulates processing and saves a test receipt after about 30 seconds.
+4. If configured, it writes the test result back to Zoho Books.
+5. The real-device path will replace the simulator after device setup and protocol verification.
 
 ## Run locally
 
