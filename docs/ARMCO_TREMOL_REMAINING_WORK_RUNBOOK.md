@@ -10,7 +10,16 @@ This runbook tracks the remaining work to connect the Zoho–Armco middleware to
 - Duplicate fiscalization request protection was exercised locally: the first registration created a `Pending` record, a second POST for the same invoice returned `409 FISCALIZATION_REQUEST_ALREADY_EXISTS`, and a GET still returned `Pending`.
 - The database enforces one fiscalization request per `zohoInvoiceId`. This verifies request registration deduplication only; device-level receipt deduplication and uncertain-outcome reconciliation are not yet verified.
 - The current server does not connect a `FiscalDevice` to the fiscalization workflow. No CU receipt has been issued by this middleware.
-- ZFPLabServer was not reachable on `localhost:4444` during the initial local check. The CU site has since confirmed port `8000`; rerun the read-only connection checks on that port. CU diagnostics, receipt issuance, Zoho write-back, and KRA/eTIMS integration remain unverified.
+- The CU site separately confirmed its gateway's ZFPLabServer port is `8000`; that gateway path still needs an approved connectivity check.
+
+### Latest local ZFPLabServer check (31 October 2026)
+
+- ZFPLabServer version `1.8.8` is installed on the development laptop and was launched as a desktop process. A local listener was observed on port `4444`.
+- `http://127.0.0.1:4444/ReadStatus()` returned HTTP `200`, but the XML response was `<Res Code="53">` with `ClientSettingsNotInitialized` and the instruction to call `settings()` first. This confirms only that a local HTTP process answered; it does not confirm that the G03 is connected or ready.
+- The laptop's current Wi-Fi address was `10.236.3.250`. A connection attempt to the separately supplied address `192.168.1.175` on port `4444` timed out. Those observations do not establish a network path to the CU or its gateway.
+- The operator reported that the G03 was not connected to the laptop during these checks. Level 2 has therefore not passed. Do not guess or issue a `settings()` command: obtain the vendor instructions and confirm connection parameters and the correct host/port with the CU owner first.
+
+These are dated, machine-specific observations. They do not replace the gateway checks below or the CU owner's confirmation of the intended ZFPLabServer endpoint. CU diagnostics, receipt issuance, Zoho write-back, and KRA/TIMS integration remain unverified.
 
 Treat these as environment-specific observations, not a guarantee that a different machine or deployment has the same configuration.
 
