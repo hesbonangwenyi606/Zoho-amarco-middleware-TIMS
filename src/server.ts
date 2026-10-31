@@ -10,8 +10,16 @@ import { RegisterFiscalizationRequestService } from "./application/fiscalization
 import { PrepareFiscalizationRequestService } from "./application/fiscalization/prepare-fiscalization-request.js";
 import { FiscalizationService } from "./application/fiscalization/fiscalization-service.js";
 import { MockFiscalDevice } from "./infrastructure/device/mock-fiscal-device.js";
+import { TremolZfpLabServerClient } from "./infrastructure/device/tremol-zfplabserver-client.js";
 
 const databaseProvider = createFiscalizationRepositoryProvider();
+
+const tremolClient = env.TREMOL_ZFPLABSERVER_BASE_URL
+  ? new TremolZfpLabServerClient({
+      baseUrl: env.TREMOL_ZFPLABSERVER_BASE_URL,
+      timeoutMs: env.TREMOL_TIMEOUT_MS,
+    })
+  : undefined;
 
 // Enable OAuth only when all required credentials are configured.
 // Otherwise, the OAuth routes will respond with HTTP 503.
@@ -96,6 +104,7 @@ const app = createApp({
   ...(prepareFiscalizationRequestService ? { prepareFiscalizationRequestService } : {}),
   ...(mockFiscalizationService ? { mockFiscalizationService } : {}),
   ...(mockWriteBack ? { mockWriteBack } : {}),
+  ...(tremolClient ? { tremolClient } : {}),
 });
 
 const server = app.listen(env.PORT, () => {

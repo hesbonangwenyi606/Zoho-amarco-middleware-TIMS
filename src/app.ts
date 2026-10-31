@@ -12,6 +12,8 @@ import { requireInvoiceApiToken } from "./middleware/require-invoice-api-token.j
 import type { PrepareFiscalizationRequestService } from "./application/fiscalization/prepare-fiscalization-request.js";
 import type { FiscalizationRepository } from "./application/fiscalization/fiscalization-repository.js";
 import type { FiscalizationService } from "./application/fiscalization/fiscalization-service.js";
+import type { TremolZfpLabServerClient } from "./infrastructure/device/tremol-zfplabserver-client.js";
+import { createTremolRouter } from "./routes/tremol-routes.js";
 
 export interface AppDependencies {
   checkDatabaseConnection?: () => Promise<void>;
@@ -28,6 +30,7 @@ export interface AppDependencies {
     qrValue: string,
     issuedAt: Date,
   ) => Promise<void>;
+  tremolClient?: TremolZfpLabServerClient;
 }
 
 export function createApp(dependencies: AppDependencies = {}): Express {
@@ -70,6 +73,11 @@ export function createApp(dependencies: AppDependencies = {}): Express {
       dependencies.mockFiscalizationService,
       dependencies.mockWriteBack,
     ),
+  );
+  app.use(
+    "/integrations/tremol",
+    requireInvoiceApiToken(dependencies.invoiceApiBearerToken ?? env.INVOICE_API_BEARER_TOKEN),
+    createTremolRouter(dependencies.tremolClient),
   );
 
   app.use((_req, res) => {

@@ -44,7 +44,7 @@ Invoke-RestMethod 'http://localhost:3001/health/ready'
 
 ## Main API routes
 
-Invoice routes require `Authorization: Bearer <INVOICE_API_BEARER_TOKEN>`.
+Invoice and Tremol routes require `Authorization: Bearer <INVOICE_API_BEARER_TOKEN>`.
 
 | Method | Route | Purpose |
 | --- | --- | --- |
@@ -56,12 +56,17 @@ Invoice routes require `Authorization: Bearer <INVOICE_API_BEARER_TOKEN>`.
 | `POST` | `/integrations/zoho/fiscalization-requests/:requestId/retry-writeback` | Retry writing a saved result to Zoho; does not issue another receipt |
 | `GET` | `/integrations/zoho/authorize` | Start Zoho OAuth authorization |
 | `GET` | `/integrations/zoho/callback` | Handle the Zoho OAuth callback |
+| `GET` | `/integrations/tremol/commands/status` | Read G03/ZFPLabServer status |
+| `GET` | `/integrations/tremol/commands/version` | Read device/server version |
+| `GET` | `/integrations/tremol/commands/current-receipt` | Read current receipt information |
+| `GET` | `/integrations/tremol/commands/receipt-counters` | Read last and total receipt numbers |
 
 ## MOCK safety
 
 - Use training invoices only. Their invoice numbers must start with `MOCK_INVOICE_NUMBER_PREFIX`.
 - `MOCK` is for development and is rejected in production.
 - MOCK produces placeholder test data and does not contact the device or KRA.
+- Tremol routes are read-only and require `TREMOL_ZFPLABSERVER_BASE_URL`; they do not configure the device or issue receipts.
 - A process restart can interrupt a pending MOCK request; this timer-based workflow is not a durable production queue.
 - Leave fiscalization disabled until you are deliberately running the MOCK test. Do not use LIVE mode until the real-device integration and the required business checks are complete.
 

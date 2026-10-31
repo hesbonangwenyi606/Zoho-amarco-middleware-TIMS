@@ -8,6 +8,9 @@ export const envSchema = z
     FISCAL_MODE: z.enum(["DISABLED", "MOCK", "LIVE"]).default("DISABLED"),
     MOCK_FAIL_ONCE_FOR_INVOICE_ID: z.string().trim().optional(),
     MOCK_INVOICE_NUMBER_PREFIX: z.string().trim().min(1).default("TRAIN-"),
+    // Optional private ZFPLabServer endpoint; receipt commands are not exposed.
+    TREMOL_ZFPLABSERVER_BASE_URL: z.string().url().optional(),
+    TREMOL_TIMEOUT_MS: z.coerce.number().int().min(1).max(60_000).default(5_000),
     ZOHO_FISCAL_STATUS_FIELD_ID: z.string().trim().optional(),
     ZOHO_CU_NUMBER_FIELD_ID: z.string().trim().optional(),
     ZOHO_QR_FIELD_ID: z.string().trim().optional(),

@@ -10,6 +10,7 @@ This runbook tracks the remaining work to connect the Zoho–Armco middleware to
 - Duplicate fiscalization request protection was exercised locally: the first registration created a `Pending` record, a second POST for the same invoice returned `409 FISCALIZATION_REQUEST_ALREADY_EXISTS`, and a GET still returned `Pending`.
 - The database enforces one fiscalization request per `zohoInvoiceId`. This verifies request registration deduplication only; device-level receipt deduplication and uncertain-outcome reconciliation are not yet verified.
 - The current server does not connect a `FiscalDevice` to the fiscalization workflow. No CU receipt has been issued by this middleware.
+- A read-only Tremol diagnostics route is now available at `/integrations/tremol/commands/:command`. It supports only `status`, `version`, `current-receipt`, and `receipt-counters`, and requires the invoice API bearer token. The route has not yet been verified against the installed CU/gateway.
 - The CU site separately confirmed its gateway's ZFPLabServer port is `8000`; that gateway path still needs an approved connectivity check.
 
 ### Latest local ZFPLabServer check (31 October 2026)
@@ -151,20 +152,39 @@ Start-Process $zfp
 
 Send commands one at a time. Save timestamps, command names, status/result codes, and sanitized errors in the engineering log. Do not record tokens, passwords, or unrestricted customer invoice data. If status is unclear, stop and use the vendor-documented `ReadStatus`/diagnostic procedure; do not guess at recovery commands such as canceling a receipt.
 
-The repository currently has a read-command client foundation, but the Express server does not instantiate it or expose a diagnostics route. Network reachability alone does not mean middleware-to-device integration is complete.
+The API now wires the read-command client to authenticated routes. Network reachability and successful read responses still need to be verified in the intended CU environment. The current laptop response `ClientSettingsNotInitialized` means the service needs vendor-approved configuration before the read checks can pass; do not guess the `settings()` payload.
+
+### Read-only middleware routes
+
+Set the optional values in the private `.env` on the machine that can reach ZFPLabServer, then restart the API:
+
+```dotenv
+TREMOL_ZFPLABSERVER_BASE_URL=http://127.0.0.1:4444
+TREMOL_TIMEOUT_MS=5000
+```
+
+Use the gateway's confirmed address and port when the middleware runs on a different computer. Do not assume the middleware laptop's `localhost` is the CU gateway. These routes use `INVOICE_API_BEARER_TOKEN` and expose only four fixed read commands:
+
+```powershell
+Invoke-RestMethod 'http://localhost:3001/integrations/tremol/commands/status' -Headers $headers
+Invoke-RestMethod 'http://localhost:3001/integrations/tremol/commands/version' -Headers $headers
+Invoke-RestMethod 'http://localhost:3001/integrations/tremol/commands/current-receipt' -Headers $headers
+Invoke-RestMethod 'http://localhost:3001/integrations/tremol/commands/receipt-counters' -Headers $headers
+```
+
+Run one request at a time with the CU owner present. A nonzero result such as `ClientSettingsNotInitialized` is a stop condition; get the vendor-approved settings procedure before proceeding. The route does not expose receipt-issuing or device-configuration commands.
 
 ## Implementation work after read-only connectivity
 
 Complete each stage and review its result before moving to the next:
 
-1. **Configuration:** add validated environment settings for the private ZFPLabServer base URL and timeout. Do not include credentials in URLs or log command URLs if they can contain sensitive data.
-2. **Diagnostics:** instantiate the client and expose an authenticated, read-only diagnostics operation. Restrict access to authorized operators; return sanitized status information.
-3. **Fiscal data validation:** agree on customer KRA PIN validation, item HS codes, units, quantity/price precision, discounts, VAT-class mapping, rounding, supported currencies, invoice states, and credit/debit note rules. Confirm requirements with Armco and the appropriate tax/device specialists.
-4. **Controlled device tests:** follow the vendor demo and Armco-approved test procedure with an operator present. Record device model/firmware, ZFPLabServer version, command, result codes, and printed output. Do not test on a live business invoice without approval.
-5. **Receipt flow:** only after protocol and data verification, implement serialized open/sell/close commands and documented cancel behavior. Persist CU receipt number and QR only after confirmed success. On timeout or lost response, set an uncertain outcome and reconcile; never blindly issue again.
-6. **Zoho write-back:** agree on custom fields for CU receipt number, QR, and fiscal status. Update Zoho only from a confirmed CU result; make write-back idempotent and auditable.
-7. **Operations:** define queue ownership, retries, alerts, daily Z-report responsibility, device downtime, 24-hour blocks, service-contract monitoring, and manual fallback. Secure any Zoho-to-gateway route with an Armco-approved tunnel/reverse proxy and strong authentication; never expose ZFPLabServer directly.
-8. **KRA/eTIMS:** verify the applicable integration and legal/operational requirements separately. A working G03 connection alone does not prove eTIMS submission or compliance.
+1. **Verify read-only diagnostics:** use the exact installed ZFPLabServer and CU with the operator; resolve service initialization and network access using vendor/IT-approved instructions.
+2. **Fiscal data validation:** agree on customer KRA PIN validation, item HS codes, units, quantity/price precision, discounts, VAT-class mapping, rounding, supported currencies, invoice states, and credit/debit note rules. Confirm requirements with Armco and the appropriate tax/device specialists.
+3. **Controlled device tests:** follow the vendor demo and Armco-approved test procedure with an operator present. Record device model/firmware, ZFPLabServer version, command, result codes, and printed output. Do not test on a live business invoice without approval.
+4. **Receipt flow:** only after protocol and data verification, implement serialized open/sell/close commands and documented cancel behavior. Persist CU receipt number and QR only after confirmed success. On timeout or lost response, set an uncertain outcome and reconcile; never blindly issue again.
+5. **Zoho write-back:** agree on custom fields for CU receipt number, QR, and fiscal status. Update Zoho only from a confirmed CU result; make write-back idempotent and auditable.
+6. **Operations:** define queue ownership, retries, alerts, daily Z-report responsibility, device downtime, 24-hour blocks, service-contract monitoring, and manual fallback. Secure any Zoho-to-gateway route with an Armco-approved tunnel/reverse proxy and strong authentication; never expose ZFPLabServer directly.
+7. **KRA/TIMS:** verify the applicable integration and legal/operational requirements separately. A working G03 connection alone does not prove KRA reporting or compliance.
 
 ## Go/no-go checklist for any live fiscalization
 
