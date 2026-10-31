@@ -32,6 +32,41 @@ function createClient(
 }
 
 describe("ZohoBooksClient", () => {
+  it("lists invoice summaries with organization and pagination", async () => {
+    const { client, transport } = createClient(
+      new Response(
+        JSON.stringify({
+          code: 0,
+          invoices: [
+            { invoice_id: invoiceId, invoice_number: "INV-001", customer_name: "Example" },
+          ],
+          page_context: { has_more_page: true },
+        }),
+      ),
+    );
+    await expect(client.listInvoices(2)).resolves.toEqual({
+      invoices: [{ invoiceId, invoiceNumber: "INV-001", customerName: "Example" }],
+      page: 2,
+      hasMore: true,
+    });
+    const [url, init] = transport.mock.calls[0]!;
+    expect(new URL(String(url)).searchParams.get("page")).toBe("2");
+    expect(new URL(String(url)).searchParams.get("organization_id")).toBe("test-organization-id");
+    expect(init?.headers).toMatchObject({ Authorization: `Zoho-oauthtoken ${accessToken}` });
+  });
+
+  it("rejects listing invoices without invoice read permission", async () => {
+    const { client, transport } = createClient(new Response("{}"), {
+      scopes: "ZohoBooks.settings.READ",
+    });
+    await expect(client.listInvoices()).rejects.toMatchObject({ name: "ZohoBooksScopeError" });
+    expect(transport).not.toHaveBeenCalled();
+  });
+
+  it("rejects malformed invoice lists", async () => {
+    const { client } = createClient(new Response(JSON.stringify({ code: 0, invoices: [{}] })));
+    await expect(client.listInvoices()).rejects.toThrow("invoice ID");
+  });
   it("writes only configured invoice custom fields with the update scope", async () => {
     const { client, transport } = createClient(
       new Response(JSON.stringify({ code: 0, message: "success" }), { status: 200 }),

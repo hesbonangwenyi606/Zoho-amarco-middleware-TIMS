@@ -31,6 +31,58 @@ export function createZohoBooksRouter(
 ): Router {
   const router = Router();
 
+  router.get("/invoices", async (req, res, next) => {
+    if (!booksClient) {
+      res
+        .status(503)
+        .json({
+          error: {
+            code: "ZOHO_BOOKS_UNAVAILABLE",
+            message: "Zoho Books invoice lookup is not configured.",
+          },
+        });
+      return;
+    }
+    const page = req.query["page"] === undefined ? 1 : Number(req.query["page"]);
+    if (
+      !Number.isSafeInteger(page) ||
+      page < 1 ||
+      (req.query["page"] !== undefined && typeof req.query["page"] !== "string")
+    ) {
+      res
+        .status(400)
+        .json({ error: { code: "INVALID_PAGE", message: "Page must be a positive integer." } });
+      return;
+    }
+    try {
+      res.json(await booksClient.listInvoices(page));
+    } catch (error) {
+      if (error instanceof ZohoBooksScopeError) {
+        res
+          .status(403)
+          .json({
+            error: {
+              code: "ZOHO_BOOKS_SCOPE_REQUIRED",
+              message: "Reconnect Zoho and grant invoice read permission.",
+            },
+          });
+        return;
+      }
+      if (error instanceof ZohoBooksApiError) {
+        res
+          .status(502)
+          .json({
+            error: {
+              code: "ZOHO_BOOKS_UPSTREAM_ERROR",
+              message: "Zoho Books could not list invoices.",
+            },
+          });
+        return;
+      }
+      next(error);
+    }
+  });
+
   router.get("/organizations", async (req, res, next) => {
     if (!booksClient) {
       res.status(503).json({
@@ -392,7 +444,8 @@ export function createZohoBooksRouter(
         res.status(403).json({
           error: {
             code: "ZOHO_BOOKS_SCOPE_REQUIRED",
-            message: "Reconnect Zoho and grant invoice update permission, then retry this write-back.",
+            message:
+              "Reconnect Zoho and grant invoice update permission, then retry this write-back.",
           },
         });
         return;

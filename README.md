@@ -50,7 +50,7 @@ Run the API in one PowerShell window, then start the frontend in a second:
 pnpm.cmd web:dev
 ```
 
-Open `http://127.0.0.1:5173`. The dashboard uses a Vite proxy to reach the API on port `3001`. Paste the local `INVOICE_API_BEARER_TOKEN` into the dashboard; it stays in browser memory and is not saved. The dashboard supports invoice candidate preview, explicitly confirmed MOCK request creation and status polling, and read-only Tremol diagnostics. It does not issue live receipts.
+Open `http://127.0.0.1:5173`. The dashboard uses a Vite proxy to reach the API on port `3001`. During local development, the API token field automatically loads `INVOICE_API_BEARER_TOKEN` from the root `.env`; restart `pnpm web:dev` after changing it. The token stays in browser memory and is not saved. Production builds leave the field empty for manual entry. The dashboard supports invoice candidate preview, explicitly confirmed MOCK request creation and status polling, and read-only Tremol diagnostics. It does not issue live receipts.
 
 Build the static frontend with `pnpm.cmd web:build`; check its TypeScript with `pnpm.cmd typecheck:web`. For a local fake device, follow [Test with the local fake G03](docs/FAKE_G03_TEST.md).
 

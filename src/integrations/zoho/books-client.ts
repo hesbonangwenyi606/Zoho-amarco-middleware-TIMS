@@ -134,6 +134,50 @@ export class ZohoBooksClient {
     this.transport = options.transport ?? fetch;
   }
 
+  /** Lists a page of invoice summaries for the configured organization. */
+  async listInvoices(page = 1) {
+    if (!Number.isSafeInteger(page) || page < 1) throw new Error("Invalid invoice page.");
+    if (!this.organizationId) throw new Error("Zoho Books organization ID is required.");
+    const token = await this.tokenProvider.getAccessToken();
+    if (!token.accessToken.trim())
+      throw new Error("Zoho access token provider returned an empty token.");
+    if (!hasScope(token.scopes, "ZohoBooks.invoices.READ")) {
+      throw new ZohoBooksScopeError("ZohoBooks.invoices.READ", token.scopes);
+    }
+    const url = new URL("/books/v3/invoices", validateApiDomain(token.apiDomain));
+    url.searchParams.set("organization_id", this.organizationId);
+    url.searchParams.set("page", String(page));
+    url.searchParams.set("per_page", "100");
+    const response = await this.transport(url, {
+      method: "GET",
+      headers: {
+        Authorization: `Zoho-oauthtoken ${token.accessToken}`,
+        Accept: "application/json",
+      },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!response.ok)
+      throw new ZohoBooksApiError("Zoho Books invoice list request failed.", response.status);
+    const body: unknown = await response.json();
+    if (typeof body !== "object" || body === null || Array.isArray(body))
+      throw new Error("Invalid Zoho invoice list.");
+    const envelope = body as Record<string, unknown>;
+    if (envelope["code"] !== 0 || !Array.isArray(envelope["invoices"]))
+      throw new Error("Invalid Zoho invoice list.");
+    const invoices = envelope["invoices"].map((value: unknown) => {
+      if (typeof value !== "object" || value === null || Array.isArray(value))
+        throw new Error("Invalid Zoho invoice entry.");
+      const invoice = value as Record<string, unknown>;
+      return {
+        invoiceId: requiredText(invoice["invoice_id"], "invoice ID"),
+        invoiceNumber: optionalText(invoice["invoice_number"]),
+        customerName: optionalText(invoice["customer_name"]),
+      };
+    });
+    const context = envelope["page_context"] as Record<string, unknown> | undefined;
+    return { invoices, page, hasMore: context?.["has_more_page"] === true };
+  }
+
   /** Lists organizations visible to the connected Zoho user. */
   async listOrganizations(): Promise<ZohoBooksOrganization[]> {
     const token = await this.tokenProvider.getAccessToken();
